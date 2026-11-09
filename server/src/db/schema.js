@@ -137,10 +137,32 @@ export function initDatabase() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
     );
+
+    -- Published Team Lineups (Playing 11 + 4 Impact + 2 Subs)
+    CREATE TABLE IF NOT EXISTS team_lineups (
+      id TEXT PRIMARY KEY,
+      room_id TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      playing_11_ids TEXT NOT NULL, -- JSON array of 11 player IDs
+      captain_id TEXT, -- player ID
+      wicketkeeper_id TEXT, -- player ID
+      impact_player_ids TEXT NOT NULL, -- JSON array of 4 player IDs
+      substitute_ids TEXT NOT NULL, -- JSON array of 2 player IDs
+      submitted_at INTEGER NOT NULL,
+      UNIQUE(room_id, team_id),
+      FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+      FOREIGN KEY (team_id) REFERENCES teams(id)
+    );
   `);
 
   try {
     db.exec("ALTER TABLE room_participants ADD COLUMN retention_confirmed INTEGER DEFAULT 0;");
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    db.exec("ALTER TABLE room_participants ADD COLUMN vote_end_bidding INTEGER DEFAULT 0;");
   } catch (e) {
     // Column already exists
   }

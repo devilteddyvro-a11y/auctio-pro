@@ -2,23 +2,26 @@ import React, { useEffect, useState, useRef } from "react";
 import confetti from "canvas-confetti";
 import { 
   Gavel, Clock, Flame, Sparkles, Volume2, VolumeX, AlertCircle, 
-  MessageSquare, Send, Users, Shield, DollarSign, Globe, X, ChevronRight, UserCheck
+  MessageSquare, Send, Users, Shield, DollarSign, Globe, X, ChevronRight, UserCheck, Flag, Check
 } from "lucide-react";
 
 export function LiveAuctionFloor({ 
   room, 
   teams, 
   liveAuction, 
+  endBiddingVotes,
   mySessionId, 
   userName,
   chatMessages = [],
   onSendChat,
   onPlaceBid, 
+  onVoteEndBidding,
   onExerciseRTM, 
   onDeclineRTM, 
   onResumeAuction 
 }) {
   const myTeam = teams.find(t => t.ownerSessionId === mySessionId);
+  const hasVotedEndBidding = Boolean(myTeam && endBiddingVotes?.votedTeamIds?.includes(myTeam.id));
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTab, setActiveTab] = useState("chat"); // "chat" | "squad" | "details"
@@ -173,6 +176,54 @@ export function LiveAuctionFloor({
           <span className="hidden sm:inline">{soundEnabled ? "Audio On" : "Muted"}</span>
         </button>
       </div>
+
+      {/* End Bidding Majority Vote Bar */}
+      {endBiddingVotes && (
+        <div className="bg-[#0e1628] border border-slate-800 rounded-2xl p-3.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <Flag className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <span>End Bidding Phase</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                  Majority Required: {endBiddingVotes.needed} / {endBiddingVotes.total} votes
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {endBiddingVotes.count >= endBiddingVotes.needed
+                  ? "Majority reached! Concluding auction..."
+                  : `${endBiddingVotes.count} of ${endBiddingVotes.total} franchises have voted to end bidding.`}
+              </div>
+            </div>
+          </div>
+
+          {/* Voting Action Button */}
+          {myTeam && (
+            <button
+              onClick={() => onVoteEndBidding(!hasVotedEndBidding)}
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow ${
+                hasVotedEndBidding
+                  ? "bg-rose-500/20 border border-rose-500/50 text-rose-300 hover:bg-rose-500/30"
+                  : "bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-400 hover:to-red-500 text-white shadow-rose-500/20 active:scale-95"
+              }`}
+            >
+              {hasVotedEndBidding ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Voted to End Bidding (Click to Cancel)</span>
+                </>
+              ) : (
+                <>
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Vote to End Bidding</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main Floor Grid: Left = Wheel/Dial & Status, Right = Sidebar Tabs (Chat & Squads) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

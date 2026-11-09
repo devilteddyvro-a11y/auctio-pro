@@ -23,6 +23,22 @@ export class RoomManager {
       purseMap[p.team_id] = p;
     }
 
+    // Query published lineups
+    const rawLineups = db.prepare("SELECT * FROM team_lineups WHERE room_id = ?").all(roomId);
+    const lineupMap = {};
+    for (const l of rawLineups) {
+      try {
+        lineupMap[l.team_id] = {
+          ...l,
+          playing_11_ids: JSON.parse(l.playing_11_ids || "[]"),
+          impact_player_ids: JSON.parse(l.impact_player_ids || "[]"),
+          substitute_ids: JSON.parse(l.substitute_ids || "[]")
+        };
+      } catch (e) {
+        lineupMap[l.team_id] = l;
+      }
+    }
+
     // Attach squad and purse to each team
     const teamsWithSquads = teams.map(team => {
       const squad = db.prepare(`
@@ -40,9 +56,12 @@ export class RoomManager {
         ownerName: claimedBy ? claimedBy.user_name : null,
         ownerSessionId: claimedBy ? claimedBy.session_id : null,
         retentionConfirmed: !!claimedBy && claimedBy.retention_confirmed === 1,
+        hasVotedEndBidding: !!claimedBy && claimedBy.vote_end_bidding === 1,
         squad,
         overseasCount: squad.filter(s => s.is_overseas === 1).length,
         squadSize: squad.length,
+        isEligible: squad.length >= 18,
+        lineup: lineupMap[team.id] || null,
         purse: purseMap[team.id] || { starting_purse: 125.0, purse_remaining: 125.0, contract_deductions: 0 }
       };
     });
@@ -53,11 +72,29 @@ export class RoomManager {
 
     const liveAuction = liveAuctionRooms.get(roomId) || null;
 
+    // Calculate End Bidding majority vote status
+    const claimedParticipants = participants.filter(p => p.team_id !== null);
+    const totalEligibleVoters = Math.max(1, claimedParticipants.length);
+    const majorityNeeded = Math.floor(totalEligibleVoters / 2) + 1;
+    const votedTeamIds = participants
+      .filter(p => p.vote_end_bidding === 1 && p.team_id !== null)
+      .map(p => p.team_id);
+
+    const endBiddingVotes = {
+      count: votedTeamIds.length,
+      total: totalEligibleVoters,
+      needed: majorityNeeded,
+      votedTeamIds,
+      isMajority: votedTeamIds.length >= majorityNeeded
+    };
+
     return {
       room,
       participants,
       teams: teamsWithSquads,
       trades: activeTrades,
+      endBiddingVotes,
+      lineups: lineupMap,
       liveAuction: liveAuction ? liveAuction.getState() : null
     };
   }

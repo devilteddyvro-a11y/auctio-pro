@@ -8,6 +8,7 @@ import { RetentionStage } from "./components/RetentionStage";
 import { LiveAuctionFloor } from "./components/LiveAuctionFloor";
 import { SquadTransparencyModal } from "./components/SquadTransparencyModal";
 import { GlobalChatBox } from "./components/GlobalChatBox";
+import { FinalLineupBoard } from "./components/FinalLineupBoard";
 
 const SERVER_URL = window.location.hostname === "localhost" ? "http://localhost:4000" : `http://${window.location.hostname}:4000`;
 
@@ -275,6 +276,16 @@ export default function App() {
     socket.emit("ABANDON_ROOM", { roomId: roomData.room.id, sessionId });
   };
 
+  const handleVoteEndBidding = (vote) => {
+    if (!roomData) return;
+    socket.emit("VOTE_END_BIDDING", { roomId: roomData.room.id, sessionId, vote });
+  };
+
+  const handleSubmitLineup = (lineupData) => {
+    if (!roomData) return;
+    socket.emit("SUBMIT_LINEUP", { roomId: roomData.room.id, sessionId, ...lineupData });
+  };
+
   // Find user's claimed team
   const myParticipant = roomData?.participants?.find(p => p.session_id === sessionId);
   const myTeam = roomData?.teams?.find(t => t.id === myParticipant?.team_id);
@@ -345,14 +356,25 @@ export default function App() {
             room={roomData.room}
             teams={roomData.teams}
             liveAuction={liveAuction || roomData.liveAuction}
+            endBiddingVotes={roomData.endBiddingVotes}
             mySessionId={sessionId}
             userName={userName}
             chatMessages={chatMessages}
             onSendChat={handleSendChat}
             onPlaceBid={handlePlaceBid}
+            onVoteEndBidding={handleVoteEndBidding}
             onExerciseRTM={handleExerciseRTM}
             onDeclineRTM={handleDeclineRTM}
             onResumeAuction={handleResumeAuction}
+          />
+        )}
+
+        {(phase === "COMPLETED" || phase === "LINEUP" || phase === "FINAL_SQUAD") && (
+          <FinalLineupBoard
+            room={roomData.room}
+            teams={roomData.teams}
+            mySessionId={sessionId}
+            onSubmitLineup={handleSubmitLineup}
           />
         )}
       </main>
