@@ -7,6 +7,7 @@ import { TradeWindow } from "./components/TradeWindow";
 import { RetentionStage } from "./components/RetentionStage";
 import { LiveAuctionFloor } from "./components/LiveAuctionFloor";
 import { SquadTransparencyModal } from "./components/SquadTransparencyModal";
+import { GlobalChatBox } from "./components/GlobalChatBox";
 
 const SERVER_URL = window.location.hostname === "localhost" ? "http://localhost:4000" : `http://${window.location.hostname}:4000`;
 
@@ -83,6 +84,56 @@ export default function App() {
       socket.off("ROOM_ABANDONED");
     };
   }, []);
+
+  // Guarantee socket re-joins room immediately upon any connect / reconnect event
+  useEffect(() => {
+    const handleConnect = () => {
+      const activeRoomId = roomData?.room?.id || localStorage.getItem("ipl_auction_room_id");
+      if (activeRoomId) {
+        socket.emit("JOIN_ROOM", { roomId: activeRoomId, sessionId });
+      }
+    };
+
+    socket.on("connect", handleConnect);
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    return () => {
+      socket.off("connect", handleConnect);
+    };
+  }, [sessionId, roomData?.room?.id]);
+
+  // Background safety sync (every 2.5s) so page updates even without manual refresh
+  useEffect(() => {
+    const activeRoomId = roomData?.room?.id || localStorage.getItem("ipl_auction_room_id");
+    if (!activeRoomId) return;
+
+    const interval = setInterval(() => {
+      fetch(`/api/rooms/${activeRoomId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.room && data.room.phase !== "ENDED") {
+            setRoomData(prev => {
+              if (!prev) return data;
+              // Detect phase change, participant count change, or claim change
+              const phaseChanged = prev.room.phase !== data.room.phase;
+              const participantsChanged = prev.participants.length !== data.participants.length;
+              const claimsChanged = prev.teams.some((t, i) => t.claimed !== data.teams[i]?.claimed);
+              const retentionsChanged = prev.teams.some((t, i) => t.retentionConfirmed !== data.teams[i]?.retentionConfirmed);
+
+              if (phaseChanged || participantsChanged || claimsChanged || retentionsChanged) {
+                return data;
+              }
+              return prev;
+            });
+          }
+        })
+        .catch(() => {});
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [roomData?.room?.id]);
 
   // Handlers
   const handleCreateRoom = async (name) => {
@@ -250,6 +301,7 @@ export default function App() {
             mySessionId={sessionId}
             onClaimTeam={handleClaimTeam}
             onStartTrading={handleStartTrading}
+            onAdvanceToRetention={handleEndTrading}
           />
         )}
 
@@ -299,6 +351,15 @@ export default function App() {
         onClose={() => setSquadModalOpen(false)}
         teams={roomData.teams}
         myTeamId={myTeam?.id}
+      />
+
+      {/* Universal Franchise Chat across all stages: Lobby, Trading, Retention, and Auction */}
+      <GlobalChatBox
+        chatMessages={chatMessages}
+        onSendChat={handleSendChat}
+        userName={userName}
+        myTeam={myTeam}
+        participants={roomData.participants}
       />
     </div>
   );

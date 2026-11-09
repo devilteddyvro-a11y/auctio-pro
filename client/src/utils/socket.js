@@ -1,9 +1,20 @@
 import { io } from "socket.io-client";
 
-// Connect to current origin automatically (works for localhost, Wi-Fi IP, and cloud/tunnel)
-export const socket = io(window.location.origin, {
+// Resolve connection target:
+// If Vite dev server on port 3000 or 5173, point directly to backend port 4000
+const socketUrl =
+  window.location.port === "3000" || window.location.port === "5173"
+    ? `http://${window.location.hostname}:4000`
+    : window.location.origin;
+
+export const socket = io(socketUrl, {
   autoConnect: true,
-  reconnection: true
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  transports: ["websocket", "polling"]
 });
 
 // Helper for session token

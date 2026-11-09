@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Users, Copy, Check, ArrowRight, ShieldCheck, Play, Globe, Wifi } from "lucide-react";
 
-export function Lobby({ room, teams, participants, mySessionId, onClaimTeam, onStartTrading }) {
+export function Lobby({ room, teams, participants, mySessionId, onClaimTeam, onStartTrading, onAdvanceToRetention }) {
   const [copiedType, setCopiedType] = useState(null);
   const isHost = participants.find(p => p.session_id === mySessionId)?.is_host === 1;
   const myParticipant = participants.find(p => p.session_id === mySessionId);
@@ -58,13 +58,24 @@ export function Lobby({ room, teams, participants, mySessionId, onClaimTeam, onS
             </div>
 
             {isHost && (
-              <button
-                onClick={onStartTrading}
-                className="px-6 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Start Trading Window {claimedCount < 10 ? "(Test Mode)" : ""}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  onClick={onStartTrading}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-1.5"
+                  title="Open 5-minute trade window"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Start Trading Window</span>
+                </button>
+                <button
+                  onClick={onAdvanceToRetention}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95 transition flex items-center gap-1.5"
+                  title="Move all players directly to retention phase"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Advance to Retentions</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -51,6 +51,11 @@ app.post("/api/rooms/join", (req, res) => {
   if (!result.success) {
     return res.status(400).json(result);
   }
+  // Immediately notify all connected players in the room that someone joined
+  const state = RoomManager.getFullRoomState(result.roomId);
+  if (state) {
+    io.to(result.roomId).emit("ROOM_STATE_UPDATED", state);
+  }
   res.json(result);
 });
 
