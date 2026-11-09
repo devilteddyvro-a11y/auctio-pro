@@ -1,0 +1,12 @@
+{
+  "name": "ipl-2027-auction-app",
+  "version": "1.0.0",
+  "description": "Multiplayer IPL 2027 Auction App with Automated Bot Auctioneer and SQLite",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:client": "cd client && npm run build"
+  }
+}
+
