@@ -292,7 +292,7 @@ export function LiveAuctionFloor({
                       isHighest
                         ? "bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 font-black ring-4 ring-amber-400/50 scale-110 shadow-amber-500/40 animate-pulse"
                         : isUserTeam
-                        ? "bg-slate-800 text-amber-300 border-2 border-amber-400/60 hover:scale-105"
+                        ? "bg-slate-800 text-sky-200 border-2 border-sky-400 shadow-sky-500/20 hover:scale-105"
                         : "bg-[#0e1628] text-slate-300 border border-slate-700/80 hover:border-slate-500 hover:scale-105"
                     }`}
                     title={`Click to view ${team.name} squad & purse`}
@@ -304,6 +304,11 @@ export function LiveAuctionFloor({
                     {isHighest && (
                       <span className="absolute -top-2 -right-1 bg-amber-300 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-tight shadow">
                         BID
+                      </span>
+                    )}
+                    {isUserTeam && !isHighest && (
+                      <span className="absolute -top-2 -left-1 bg-sky-400 text-slate-950 text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-tight shadow">
+                        YOU
                       </span>
                     )}
                   </button>
@@ -350,7 +355,7 @@ export function LiveAuctionFloor({
                 {currentPlayer.former_team_short && (
                   <div className="mt-1.5 text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
-                    <span>RTM: {currentPlayer.former_team_short}</span>
+                    <span>2026 Team: {currentPlayer.former_team_short} (RTM)</span>
                   </div>
                 )}
               </div>

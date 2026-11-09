@@ -71,18 +71,12 @@ export class AutomatedAuctioneer {
     this.highestBidderTeamName = null;
     this.rtmFormerTeamId = nextItem.former_team_id || null;
     this.rtmFormerTeamName = nextItem.former_team_name || null;
-    this.timer = 15;
-    this.status = "INTRODUCING";
-    this.announcement = `Welcome to the auction block: ${nextItem.name} (${nextItem.role}, ${nextItem.is_overseas ? "Overseas" : "India"}). Base price ₹${this.currentBid.toFixed(2)} Cr!`;
+    this.timer = 10; // Exactly 10 seconds if no one bids
+    this.status = "BIDDING";
+    this.announcement = `On the block: ${nextItem.name} (${nextItem.role}, ${nextItem.is_overseas ? "Overseas" : "India"}). Base price ₹${this.currentBid.toFixed(2)} Cr. 10s to open bid!`;
 
     this.broadcastState();
-
-    setTimeout(() => {
-      this.status = "BIDDING";
-      this.announcement = `Bidding is now open for ${nextItem.name}! Base price ₹${this.currentBid.toFixed(2)} Cr.`;
-      this.broadcastState();
-      this.startCountdown();
-    }, 2500);
+    this.startCountdown();
   }
 
   startCountdown() {
@@ -91,7 +85,7 @@ export class AutomatedAuctioneer {
       if (this.status === "RTM_CHECK") {
         this.rtmTimer--;
         if (this.rtmTimer <= 0) {
-          // RTM expired -> finalize sale to original highest bidder
+          clearInterval(this.timerInterval);
           this.finalizeSale(this.highestBidderTeamId, this.highestBidderTeamName, false);
         } else {
           this.broadcastState();
@@ -101,25 +95,11 @@ export class AutomatedAuctioneer {
 
       this.timer--;
 
-      if (this.timer === 8) {
-        if (this.highestBidderTeamId) {
-          this.status = "GOING_1";
-          this.announcement = `Going once at ₹${this.currentBid.toFixed(2)} Cr to ${this.highestBidderTeamName}...`;
-        } else {
-          this.announcement = `Any bids for ${this.currentPlayer.name} at ₹${this.currentBid.toFixed(2)} Cr?`;
-        }
-      } else if (this.timer === 4) {
-        if (this.highestBidderTeamId) {
-          this.status = "GOING_2";
-          this.announcement = `Going twice at ₹${this.currentBid.toFixed(2)} Cr to ${this.highestBidderTeamName}... Final call!`;
-        } else {
-          this.announcement = `Final call for ${this.currentPlayer.name}!`;
-        }
-      } else if (this.timer <= 0) {
+      if (this.timer <= 0) {
         clearInterval(this.timerInterval);
 
         if (this.highestBidderTeamId) {
-          // Check RTM eligibility
+          // Bidding active and 15 seconds elapsed without higher bids -> Sold!
           const formerTeam = this.rtmFormerTeamId;
           if (formerTeam && formerTeam !== this.highestBidderTeamId) {
             const purse = db.prepare("SELECT * FROM room_purses WHERE room_id = ? AND team_id = ?").get(this.roomId, formerTeam);
@@ -144,9 +124,9 @@ export class AutomatedAuctioneer {
           // No RTM or not eligible -> finalize sale
           this.finalizeSale(this.highestBidderTeamId, this.highestBidderTeamName, false);
         } else {
-          // Unsold
+          // No one placed a bid in the first 10 seconds -> Player goes UNSOLD
           this.status = "UNSOLD";
-          this.announcement = `${this.currentPlayer.name} remains UNSOLD!`;
+          this.announcement = `${this.currentPlayer.name} remains UNSOLD (no bids in 10s)!`;
 
           db.prepare(`
             UPDATE room_players SET status = 'UNSOLD' WHERE id = ?
@@ -157,11 +137,11 @@ export class AutomatedAuctioneer {
 
           setTimeout(() => {
             this.nextPlayer();
-          }, 3500);
+          }, 3000);
         }
+      } else {
+        this.broadcastState();
       }
-
-      this.broadcastState();
     }, 1000);
   }
 
@@ -225,9 +205,9 @@ export class AutomatedAuctioneer {
     this.currentBid = nextBid;
     this.highestBidderTeamId = teamId;
     this.highestBidderTeamName = teamName;
-    this.timer = 12; // Reset countdown
+    this.timer = 15; // Reset countdown to exactly 15 seconds
     this.status = "BIDDING";
-    this.announcement = `Bid of ₹${nextBid.toFixed(2)} Cr placed by ${teamName}!`;
+    this.announcement = `Bid of ₹${nextBid.toFixed(2)} Cr placed by ${teamName}! 15s on the clock.`;
 
     db.prepare(`
       INSERT INTO auction_bids (id, room_id, player_id, team_id, bid_amount, created_at)
