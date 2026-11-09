@@ -8,13 +8,14 @@ export function Lobby({ room, teams, participants, mySessionId, onClaimTeam, onS
   const myTeamId = myParticipant?.team_id;
   const claimedCount = teams.filter(t => t.claimed).length;
 
-  // Public Internet Link (works on mobile data 4G/5G anywhere in the world)
-  const publicTunnelBase = "https://19a5088028cfa0.lhr.life";
-  const internetUrl = window.location.origin.includes("loca.lt")
-    ? `${window.location.origin}/?room=${room.room_code}`
-    : `${publicTunnelBase}/?room=${room.room_code}`;
+  // Detect current site origin automatically (works for Render, Cloud, Local, or Custom Domain)
+  const currentOrigin = window.location.origin;
+  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   
-  // Local Wi-Fi IP link (works for phones/devices connected to the SAME Wi-Fi router)
+  // Direct share link using the actual live website domain
+  const shareUrl = `${currentOrigin}/?room=${room.room_code}`;
+  
+  // Local Wi-Fi IP link (only applicable if running on a local home PC)
   const wifiUrl = `http://192.168.1.5:4000/?room=${room.room_code}`;
 
   const copyLink = (url, type) => {
@@ -69,49 +70,70 @@ export function Lobby({ room, teams, participants, mySessionId, onClaimTeam, onS
         </div>
       </div>
 
-      {/* Shareable Invite Links Box */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        
-        {/* Link 1: Same Wi-Fi */}
-        <div className="p-4 bg-sky-500/10 border border-sky-500/30 rounded-2xl flex flex-col justify-between gap-3 shadow">
-          <div>
-            <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wide mb-1">
-              <Wifi className="w-4 h-4" />
-              <span>Link 1: Friends on the SAME Wi-Fi</span>
+      {/* Shareable Invite Link Card */}
+      <div className="mb-8">
+        {!isLocalhost ? (
+          /* Hosted on Internet (Render / Cloud / Custom Domain) - Clean single share box */
+          <div className="p-5 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-blue-500/10 border border-amber-400/30 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="w-full sm:w-auto flex-1">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">
+                <Globe className="w-4 h-4" />
+                <span>Shareable Room Invite Link (Copy & Send to Friends)</span>
+              </div>
+              <div className="text-sm font-mono text-slate-100 break-all bg-slate-900/90 p-3 rounded-xl border border-slate-700 select-all">
+                {shareUrl}
+              </div>
             </div>
-            <div className="text-xs font-mono text-slate-300 break-all bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-              {wifiUrl}
+            <button
+              onClick={() => copyLink(shareUrl, "share")}
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-amber-500/20 shrink-0 uppercase tracking-wider font-teko text-base"
+            >
+              {copiedType === "share" ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
+              <span>{copiedType === "share" ? "Copied Invite Link!" : "Copy Invite Link"}</span>
+            </button>
+          </div>
+        ) : (
+          /* Local Testing on PC */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-sky-500/10 border border-sky-500/30 rounded-2xl flex flex-col justify-between gap-3 shadow">
+              <div>
+                <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wide mb-1">
+                  <Wifi className="w-4 h-4" />
+                  <span>Option 1: Friends on the SAME Wi-Fi</span>
+                </div>
+                <div className="text-xs font-mono text-slate-300 break-all bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  {wifiUrl}
+                </div>
+              </div>
+              <button
+                onClick={() => copyLink(wifiUrl, "wifi")}
+                className="w-full py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+              >
+                {copiedType === "wifi" ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedType === "wifi" ? "Copied Wi-Fi Link!" : "Copy Same-Wi-Fi Link"}</span>
+              </button>
+            </div>
+
+            <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl flex flex-col justify-between gap-3 shadow">
+              <div>
+                <div className="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wide mb-1">
+                  <Globe className="w-4 h-4 text-purple-400" />
+                  <span>Option 2: Direct Active Link</span>
+                </div>
+                <div className="text-xs font-mono text-slate-300 break-all bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  {shareUrl}
+                </div>
+              </div>
+              <button
+                onClick={() => copyLink(shareUrl, "share")}
+                className="w-full py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+              >
+                {copiedType === "share" ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedType === "share" ? "Copied Link!" : "Copy Direct Link"}</span>
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => copyLink(wifiUrl, "wifi")}
-            className="w-full py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-          >
-            {copiedType === "wifi" ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
-            <span>{copiedType === "wifi" ? "Copied Wi-Fi Link!" : "Copy Same-Wi-Fi Link"}</span>
-          </button>
-        </div>
-
-        {/* Link 2: Anywhere over the Internet */}
-        <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl flex flex-col justify-between gap-3 shadow">
-          <div>
-            <div className="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wide mb-1">
-              <Globe className="w-4 h-4 text-purple-400" />
-              <span>Link 2: ANYWHERE (Mobile Data 4G/5G / Remote Friends)</span>
-            </div>
-            <div className="text-xs font-mono text-slate-300 break-all bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-              {internetUrl}
-            </div>
-          </div>
-          <button
-            onClick={() => copyLink(internetUrl, "internet")}
-            className="w-full py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-          >
-            {copiedType === "internet" ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-            <span>{copiedType === "internet" ? "Copied Internet Link!" : "Copy Anywhere Internet Link"}</span>
-          </button>
-        </div>
-
+        )}
       </div>
 
       {/* 10 Franchise Selection Grid */}
