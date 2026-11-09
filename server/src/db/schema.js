@@ -59,6 +59,7 @@ export function initDatabase() {
       user_name TEXT NOT NULL,
       team_id TEXT,
       is_host INTEGER DEFAULT 0,
+      retention_confirmed INTEGER DEFAULT 0,
       joined_at INTEGER NOT NULL,
       UNIQUE(room_id, session_id),
       UNIQUE(room_id, team_id),
@@ -137,6 +138,12 @@ export function initDatabase() {
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
     );
   `);
+
+  try {
+    db.exec("ALTER TABLE room_participants ADD COLUMN retention_confirmed INTEGER DEFAULT 0;");
+  } catch (e) {
+    // Column already exists
+  }
 
   console.log("SQLite schema initialized successfully.");
 }

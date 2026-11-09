@@ -100,7 +100,12 @@ io.on("connection", (socket) => {
     GameEngine.startTrading(roomId, io);
   });
 
-  socket.on("ADVANCE_TO_RETENTION", ({ roomId }) => {
+  socket.on("ADVANCE_TO_RETENTION", ({ roomId, sessionId }) => {
+    const participant = db.prepare("SELECT is_host FROM room_participants WHERE room_id = ? AND session_id = ?").get(roomId, sessionId);
+    if (!participant || participant.is_host !== 1) {
+      socket.emit("ACTION_ERROR", "Only the room owner can advance to the retention phase.");
+      return;
+    }
     GameEngine.closeTrading(roomId, io);
   });
 
@@ -131,8 +136,16 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("FINALIZE_RETENTION_START_AUCTION", ({ roomId }) => {
-    GameEngine.finalizeRetentionAndStartAuction(roomId, io);
+  socket.on("FINALIZE_RETENTION_START_AUCTION", ({ roomId, sessionId }) => {
+    const participant = db.prepare("SELECT is_host FROM room_participants WHERE room_id = ? AND session_id = ?").get(roomId, sessionId);
+    if (!participant || participant.is_host !== 1) {
+      socket.emit("ACTION_ERROR", "Only the room owner can launch the live auction.");
+      return;
+    }
+    const result = GameEngine.finalizeRetentionAndStartAuction(roomId, io);
+    if (result && !result.success) {
+      socket.emit("ACTION_ERROR", result.error);
+    }
   });
 
   socket.on("RESUME_AUCTION", ({ roomId }) => {

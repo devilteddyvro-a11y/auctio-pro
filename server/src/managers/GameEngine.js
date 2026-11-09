@@ -427,13 +427,43 @@ export class GameEngine {
     return result;
   }
 
-  static submitRetention(roomId, sessionId, { retainedPlayerIds, releasedPlayerIds }) {
+  static submitRetention(roomId, sessionId, { retainedPlayerIds = [], releasedPlayerIds = [], uncappedPlayerId = null }) {
     const participant = db.prepare("SELECT * FROM room_participants WHERE room_id = ? AND session_id = ?").get(roomId, sessionId);
     if (!participant || !participant.team_id) {
       return { success: false, error: "Unauthorized." };
     }
 
-    const teamId = participant.team_id;
+    if (retainedPlayerIds.length > 6) {
+      return { success: false, error: "Maximum retention limit is 6 players." };
+    }
+
+    let uncappedCount = 0;
+    let cappedCount = 0;
+
+    for (const id of retainedPlayerIds) {
+      const rp = db.prepare(`
+        SELECT rp.*, pl.is_overseas, pl.country
+        FROM room_players rp
+        JOIN players pl ON rp.player_id = pl.id
+        WHERE rp.room_id = ? AND rp.id = ?
+      `).get(roomId, id);
+
+      if (!rp) continue;
+
+      const isUncappedCandidate = rp.is_overseas === 0 && (rp.price <= 4.0 || rp.orig_acq === "Retained");
+      if (id === uncappedPlayerId && isUncappedCandidate) {
+        uncappedCount++;
+      } else {
+        cappedCount++;
+      }
+    }
+
+    if (cappedCount > 5) {
+      return { success: false, error: "Maximum 5 capped players can be retained." };
+    }
+    if (uncappedCount > 1) {
+      return { success: false, error: "Maximum 1 uncapped player can be retained." };
+    }
 
     const tx = db.transaction(() => {
       // Mark released players
@@ -453,6 +483,13 @@ export class GameEngine {
           WHERE room_id = ? AND id = ?
         `).run(roomId, id);
       }
+
+      // Mark participant retention as confirmed
+      db.prepare(`
+        UPDATE room_participants
+        SET retention_confirmed = 1
+        WHERE room_id = ? AND session_id = ?
+      `).run(roomId, sessionId);
     });
 
     tx();
@@ -460,6 +497,22 @@ export class GameEngine {
   }
 
   static finalizeRetentionAndStartAuction(roomId, io) {
+    // Strictly verify all claimed teams have confirmed retentions
+    const pendingParticipants = db.prepare(`
+      SELECT p.user_name, t.short_name
+      FROM room_participants p
+      LEFT JOIN teams t ON p.team_id = t.id
+      WHERE p.room_id = ? AND p.team_id IS NOT NULL AND p.retention_confirmed = 0
+    `).all(roomId);
+
+    if (pendingParticipants.length > 0) {
+      const pendingNames = pendingParticipants.map(p => p.short_name || p.user_name).join(", ");
+      return { 
+        success: false, 
+        error: `Cannot proceed to auction! All players must confirm their retentions first. Pending: ${pendingNames}` 
+      };
+    }
+
     const tx = db.transaction(() => {
       // 1. Calculate each team's contract deductions & purse
       const teams = db.prepare("SELECT id FROM teams").all();
@@ -511,5 +564,6 @@ export class GameEngine {
     auctioneer.start();
 
     io.to(roomId).emit("ROOM_STATE_UPDATED", RoomManager.getFullRoomState(roomId));
+    return { success: true };
   }
 }

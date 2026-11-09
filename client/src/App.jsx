@@ -165,7 +165,7 @@ export default function App() {
 
   const handleEndTrading = () => {
     if (!roomData) return;
-    socket.emit("ADVANCE_TO_RETENTION", { roomId: roomData.room.id });
+    socket.emit("ADVANCE_TO_RETENTION", { roomId: roomData.room.id, sessionId });
   };
 
   const handleSubmitRetention = (data) => {
@@ -175,7 +175,7 @@ export default function App() {
 
   const handleStartAuction = () => {
     if (!roomData) return;
-    socket.emit("FINALIZE_RETENTION_START_AUCTION", { roomId: roomData.room.id });
+    socket.emit("FINALIZE_RETENTION_START_AUCTION", { roomId: roomData.room.id, sessionId });
   };
 
   const handlePlaceBid = (teamId, teamName) => {
@@ -257,6 +257,7 @@ export default function App() {
           <TradeWindow
             room={roomData.room}
             teams={roomData.teams}
+            participants={roomData.participants}
             trades={roomData.trades || []}
             mySessionId={sessionId}
             onProposeTrade={handleProposeTrade}
@@ -269,6 +270,7 @@ export default function App() {
           <RetentionStage
             room={roomData.room}
             teams={roomData.teams}
+            participants={roomData.participants}
             mySessionId={sessionId}
             onSubmitRetention={handleSubmitRetention}
             onStartAuction={handleStartAuction}

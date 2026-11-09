@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeftRight, Clock, Plus, Check, X, Shield, Coins, AlertCircle } from "lucide-react";
 
-export function TradeWindow({ room, teams, trades, mySessionId, onProposeTrade, onRespondTrade, onEndTrading }) {
+export function TradeWindow({ room, teams, participants = [], trades, mySessionId, onProposeTrade, onRespondTrade, onEndTrading }) {
   const myParticipant = teams.find(t => t.ownerSessionId === mySessionId);
   const myTeam = myParticipant;
-  const isHost = room.created_by && myParticipant?.ownerName === room.created_by; // or host check
+  const isHost = participants.find(p => p.session_id === mySessionId)?.is_host === 1;
 
   // Countdown timer
   const [timeLeft, setTimeLeft] = useState(300);
@@ -91,12 +91,14 @@ export function TradeWindow({ room, teams, trades, mySessionId, onProposeTrade, 
             </button>
           )}
 
-          <button
-            onClick={onEndTrading}
-            className="px-4 py-2.5 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-          >
-            Advance to Retentions
-          </button>
+          {isHost && (
+            <button
+              onClick={onEndTrading}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow"
+            >
+              Advance to Retentions (Host Only)
+            </button>
+          )}
         </div>
       </div>
 

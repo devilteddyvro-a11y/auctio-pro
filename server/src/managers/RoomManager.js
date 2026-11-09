@@ -39,6 +39,7 @@ export class RoomManager {
         claimed: !!claimedBy,
         ownerName: claimedBy ? claimedBy.user_name : null,
         ownerSessionId: claimedBy ? claimedBy.session_id : null,
+        retentionConfirmed: !!claimedBy && claimedBy.retention_confirmed === 1,
         squad,
         overseasCount: squad.filter(s => s.is_overseas === 1).length,
         squadSize: squad.length,
