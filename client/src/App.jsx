@@ -129,11 +129,10 @@ export default function App() {
               return prev;
             });
 
-            // Also keep liveAuction unstuck if in AUCTION phase
+            // Keep liveAuction synchronized only if out of sync with current player or status
             if (data.room.phase === "AUCTION" && data.liveAuction) {
               setLiveAuction(prev => {
-                // If auction tick was missed (e.g. socket reconnected), catch up to server
-                if (!prev || prev.currentPlayer?.id !== data.liveAuction.currentPlayer?.id || Math.abs(prev.timer - data.liveAuction.timer) > 1 || prev.status !== data.liveAuction.status) {
+                if (!prev || prev.currentPlayer?.id !== data.liveAuction.currentPlayer?.id || prev.status !== data.liveAuction.status) {
                   return data.liveAuction;
                 }
                 return prev;

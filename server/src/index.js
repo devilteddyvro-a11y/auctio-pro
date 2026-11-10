@@ -204,7 +204,7 @@ io.on("connection", (socket) => {
       db.prepare("UPDATE rooms SET phase = 'COMPLETED', phase_ends_at = NULL WHERE id = ?").run(roomId);
       const auctioneer = liveAuctionRooms.get(roomId);
       if (auctioneer) {
-        if (auctioneer.timerInterval) clearInterval(auctioneer.timerInterval);
+        auctioneer.stop();
         liveAuctionRooms.delete(roomId);
       }
       const finalState = RoomManager.getFullRoomState(roomId);
@@ -320,7 +320,7 @@ io.on("connection", (socket) => {
 
     const auctioneer = liveAuctionRooms.get(roomId);
     if (auctioneer) {
-      if (auctioneer.timerInterval) clearInterval(auctioneer.timerInterval);
+      auctioneer.stop();
       liveAuctionRooms.delete(roomId);
     }
 

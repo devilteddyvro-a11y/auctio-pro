@@ -7,6 +7,7 @@ export class AutomatedAuctioneer {
     this.roomId = roomId;
     this.io = io;
     this.timerInterval = null;
+    this.nextTimeout = null;
     this.currentPlayer = null;
     this.currentBid = 0;
     this.highestBidderTeamId = null;
@@ -17,6 +18,22 @@ export class AutomatedAuctioneer {
     this.rtmFormerTeamId = null;
     this.rtmFormerTeamName = null;
     this.rtmTimer = 10;
+  }
+
+  clearTimers() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    if (this.nextTimeout) {
+      clearTimeout(this.nextTimeout);
+      this.nextTimeout = null;
+    }
+  }
+
+  stop() {
+    this.clearTimers();
+    this.status = "IDLE";
   }
 
   getState() {
@@ -43,16 +60,16 @@ export class AutomatedAuctioneer {
   }
 
   nextPlayer() {
-    clearInterval(this.timerInterval);
+    this.clearTimers();
 
-    // Pick next available player in AUCTION_POOL for this room
+    // Pick next available player in AUCTION_POOL for this room deterministically
     const nextItem = db.prepare(`
       SELECT rp.*, pl.name, pl.role, pl.country, pl.is_overseas, pl.base_price, t.name as former_team_name, t.short_name as former_team_short
       FROM room_players rp
       JOIN players pl ON rp.player_id = pl.id
       LEFT JOIN teams t ON rp.former_team_id = t.id
-      WHERE rp.room_id = ? AND rp.status = 'AUCTION_POOL'
-      ORDER BY rp.price DESC, pl.base_price DESC
+      WHERE rp.room_id = ? AND (rp.status = 'AUCTION_POOL' OR rp.status = 'UNDER_HAMMER')
+      ORDER BY rp.price DESC, pl.base_price DESC, rp.id ASC
       LIMIT 1
     `).get(this.roomId);
 
@@ -64,6 +81,9 @@ export class AutomatedAuctioneer {
       this.io.to(this.roomId).emit("ROOM_STATE_UPDATED", RoomManager.getFullRoomState(this.roomId));
       return;
     }
+
+    // Lock player as UNDER_HAMMER to prevent any duplicate selection
+    db.prepare(`UPDATE room_players SET status = 'UNDER_HAMMER' WHERE id = ?`).run(nextItem.id);
 
     this.currentPlayer = nextItem;
     this.currentBid = nextItem.base_price || 0.30;
@@ -80,12 +100,12 @@ export class AutomatedAuctioneer {
   }
 
   startCountdown() {
-    clearInterval(this.timerInterval);
+    this.clearTimers();
     this.timerInterval = setInterval(() => {
       if (this.status === "RTM_CHECK") {
         this.rtmTimer--;
         if (this.rtmTimer <= 0) {
-          clearInterval(this.timerInterval);
+          this.clearTimers();
           this.finalizeSale(this.highestBidderTeamId, this.highestBidderTeamName, false);
         } else {
           this.broadcastState();
@@ -96,7 +116,7 @@ export class AutomatedAuctioneer {
       this.timer--;
 
       if (this.timer <= 0) {
-        clearInterval(this.timerInterval);
+        this.clearTimers();
 
         if (this.highestBidderTeamId) {
           // Bidding active and 15 seconds elapsed without higher bids -> Sold!
@@ -111,7 +131,7 @@ export class AutomatedAuctioneer {
               this.timerInterval = setInterval(() => {
                 this.rtmTimer--;
                 if (this.rtmTimer <= 0) {
-                  clearInterval(this.timerInterval);
+                  this.clearTimers();
                   this.finalizeSale(this.highestBidderTeamId, this.highestBidderTeamName, false);
                 } else {
                   this.broadcastState();
@@ -135,7 +155,7 @@ export class AutomatedAuctioneer {
           this.broadcastState();
           this.io.to(this.roomId).emit("ROOM_STATE_UPDATED", RoomManager.getFullRoomState(this.roomId));
 
-          setTimeout(() => {
+          this.nextTimeout = setTimeout(() => {
             this.nextPlayer();
           }, 3000);
         }
@@ -239,6 +259,7 @@ export class AutomatedAuctioneer {
   }
 
   finalizeSale(winningTeamId, winningTeamName, viaRTM = false) {
+    this.clearTimers();
     this.status = "SOLD";
     this.announcement = `SOLD! ${this.currentPlayer.name} sold to ${winningTeamName} for ₹${this.currentBid.toFixed(2)} Cr${viaRTM ? " (via RTM!)" : "!"}`;
 
@@ -277,7 +298,7 @@ export class AutomatedAuctioneer {
     this.broadcastState();
     this.io.to(this.roomId).emit("ROOM_STATE_UPDATED", RoomManager.getFullRoomState(this.roomId));
 
-    setTimeout(() => {
+    this.nextTimeout = setTimeout(() => {
       this.nextPlayer();
     }, 4000);
   }
@@ -538,7 +559,11 @@ export class GameEngine {
 
     tx();
 
-    // 5. Initialize & start Automated Auctioneer
+    // 5. Initialize & start Automated Auctioneer (safely stopping any previous instance)
+    const existing = liveAuctionRooms.get(roomId);
+    if (existing) {
+      existing.stop();
+    }
     const auctioneer = new AutomatedAuctioneer(roomId, io);
     liveAuctionRooms.set(roomId, auctioneer);
     auctioneer.start();
